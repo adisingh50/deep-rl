@@ -1,2 +1,2 @@
 # deep-rl
-Learning to implement Deep Reinforcement Learning Algorithms on a custom environment.
+Applying Q-Lerning and Deep Q Learning Approaches to a very simple grid based game. Just a toy example for learning purposes.

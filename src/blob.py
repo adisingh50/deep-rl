@@ -1,10 +1,8 @@
 import numpy as np
 
 class Blob:
-    def __init__(self, exclude_coords=(), grid_size=10):
-        self.x = np.random.randint(0, grid_size)
-        self.y = np.random.randint(0, grid_size)
-        
+    def __init__(self, grid_size, exclude_coords=()):
+
         # Initialize a unique pair of coordinates for the blob.
         while True:
             self.x = np.random.randint(0, grid_size)
@@ -13,7 +11,6 @@ class Blob:
             coords = (self.x, self.y)
             if coords not in exclude_coords:
                 break
-
 
         self.grid_size = grid_size
     
