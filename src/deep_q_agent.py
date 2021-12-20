@@ -1,6 +1,7 @@
 """Class that creates a Deep Q Learning Agent."""
 
 import copy
+import glob
 import os
 import pdb
 import random
@@ -155,6 +156,11 @@ class DeepQAgent:
         self.replay_memory.append(dataTuple)
 
     def save_loss_plot(self):
+        # Delete an old loss plot file if it exists
+        lossPlotPaths = glob.glob(f"/content/drive/My Drive/deep-rl/results/deep-qagent-{self.modelID}/loss_plot*.png")
+        if len(lossPlotPaths) == 1 and os.path.exists(lossPlotPaths[0]):
+            os.remove(lossPlotPaths[0])
+
         x_values = np.arange(self.min_replay_memory_size, self.min_replay_memory_size + len(self.losses))
         y_values = np.array(self.losses)
 
@@ -162,7 +168,7 @@ class DeepQAgent:
         plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Deep RL Agent Losses")
-        plt.savefig(f"results/deep-qagent-{self.modelID}/loss_plot-{self.total_steps}-steps.png")
+        plt.savefig(f"results/deep-qagent-{self.modelID}/loss_plot_{self.total_steps}_steps.png")
         plt.clf()
 
     def save_results_to_disk(self, window_size):
