@@ -51,6 +51,9 @@ class DeepQAgent:
         self.step_counts = []
         self.total_steps = 0
 
+        self.modelID = int(time.time())
+        os.makedirs(f"results/deep-qagent-{self.modelID}", exist_ok=True)
+
     def engage_environment(self, num_episodes):
         self.pred_model.train()
 
@@ -159,23 +162,21 @@ class DeepQAgent:
         plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Deep RL Agent Losses")
-        plt.savefig(f"results/deep-qagent-{currTime}/loss_plot-{self.total_steps}-steps.png")
+        plt.savefig(f"results/deep-qagent-{self.modelID}/loss_plot-{self.total_steps}-steps.png")
         plt.clf()
 
     def save_results_to_disk(self, window_size):
         print("Saving Deep-Q-Model and Episode Reward Metrics to Disk...")
-        currTime = int(time.time())
 
         # Save Prediction Network
-        os.makedirs(f"results/deep-qagent-{currTime}", exist_ok=True)
-        torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{currTime}/model.pt")
+        torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model.pt")
 
         # Write all episode rewards and losses to txt
-        with open(f"results/deep-qagent-{currTime}/episode-rewards.txt", "a") as f:
+        with open(f"results/deep-qagent-{self.modelID}/episode-rewards.txt", "a") as f:
             for episode, reward in enumerate(self.episode_rewards):
                 f.write(f"Episode: {episode} | Reward: {reward}\n")
 
-        with open(f"results/deep-qagent-{currTime}/step-losses.txt", "a") as f:
+        with open(f"results/deep-qagent-{self.modelID}/step-losses.txt", "a") as f:
             for step, loss in enumerate(self.losses):
                 f.write(f"Step: {step + self.min_replay_memory_size} | Loss: {loss}\n")
 
@@ -189,7 +190,7 @@ class DeepQAgent:
         plt.xlabel("Episode")
         plt.ylabel("Reward Moving Average")
         plt.title("Deep RL Agent Episode Rewards")
-        plt.savefig(f"results/deep-qagent-{currTime}/reward_plot.png")
+        plt.savefig(f"results/deep-qagent-{self.modelID}/reward_plot.png")
         plt.clf()
 
         # Plot Losses Plot
