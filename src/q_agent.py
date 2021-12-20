@@ -30,7 +30,7 @@ class QAgent:
 
         # Initialize environment and q-table.
         # Maps ((food deltaX, food deltaY), (enemy deltaX, enemy deltaY)) -> reward
-        self.env = Environment(self.grid_size)
+        self.env = Environment(self.grid_size, return_images=True)
         self.q_table = {}
 
         self.action_space = (0, 1, 2, 3)
@@ -44,7 +44,7 @@ class QAgent:
     def train(self):
         # Iterate through all episodes
         for episode in range(self.episodes):
-            player, food, enemy = self.env.create_entities()
+            self.env.reset()
 
             # Print out training metrics on some episodes.
             if episode != 0 and episode % SHOW_EVERY == 0:
@@ -60,19 +60,19 @@ class QAgent:
 
                 # Display Game UI on occasional episodes
                 if show_display:
-                    self.env.display_game(episode, player, food, enemy)
+                    self.env.display_game(episode)
 
                 # Get (state, action) pair
-                obs = (player - food, player - enemy)
+                obs = (self.env.player - self.env.food, self.env.player - self.env.enemy)
                 if np.random.random() > self.epsilon: # exploitation
                     action = np.argmax(self.q_table[obs])
                 else:                                 # exploration
                     action = np.random.randint(0, 4)
-                player.execute_action(action)
+                self.env.player.execute_action(action)
 
                 # Determine reward for (state, action) pair
-                enemyCollision = player.x == enemy.x and player.y == enemy.y
-                foodCollision = player.x == food.x and player.y == food.y
+                enemyCollision = self.env.player.x == self.env.enemy.x and self.env.player.y == self.env.enemy.y
+                foodCollision = self.env.player.x == self.env.food.x and self.env.player.y == self.env.food.y
 
                 if enemyCollision:
                     reward = ENEMY_PENALTY
@@ -81,7 +81,7 @@ class QAgent:
                 else:
                     reward = MOVE_PENALTY
                 
-                new_obs = (player - food, player - enemy)
+                new_obs = (self.env.player - self.env.food, self.env.player - self.env.enemy)
                 max_future_q = np.max(self.q_table[new_obs])
                 curr_q = self.q_table[obs][action]
 

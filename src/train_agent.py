@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 
 from q_agent import QAgent
+from deep_q_agent import DeepQAgent
 
 def display_random_moves():
     env = Environment(alpha=0.1, grid_size=10, episodes=25000, num_steps=500, epsilon=0.9, epsilon_decay=0.9998)
@@ -21,5 +22,19 @@ def train_q_agent():
     qAgent.save_results_to_disk(window_size=50)
     print('Done Training RL Agent :)')
 
+def train_deep_q_agent():
+    deepQAgent = DeepQAgent(grid_size=10,
+                            replay_memory_size=50_000,
+                            min_replay_memory_size=1_000,
+                            batch_size=64,
+                            gamma=0.95,
+                            target_model_update_interval=5,
+                            epsilon=1,
+                            epsilon_decay=0.9997,
+                            min_epsilon=0.001)
+    deepQAgent.engage_environment(num_episodes=10_000)
+    deepQAgent.save_results_to_disk(window_size=50)
+    print('Done Training Deep RL Agent :)')
+
 if __name__ == "__main__":
-    train_q_agent()
+    train_deep_q_agent()

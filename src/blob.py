@@ -1,16 +1,11 @@
 import numpy as np
 
 class Blob:
-    def __init__(self, grid_size, exclude_coords=()):
+    def __init__(self, grid_size):
 
         # Initialize a unique pair of coordinates for the blob.
-        while True:
-            self.x = np.random.randint(0, grid_size)
-            self.y = np.random.randint(0, grid_size)
-
-            coords = (self.x, self.y)
-            if coords not in exclude_coords:
-                break
+        self.x = np.random.randint(0, grid_size)
+        self.y = np.random.randint(0, grid_size)
 
         self.grid_size = grid_size
     
@@ -19,6 +14,9 @@ class Blob:
 
     def __sub__(self, other):
         return (self.x - other.x, self.y - other.y)
+
+    def __eq__(self, other):
+        return (self.x == other.x and self.y == other.y)
 
     def execute_action(self, choice):
         if (choice == 0):
@@ -30,22 +28,10 @@ class Blob:
         elif (choice == 3):
             self.move(deltaX=-1, deltaY=0)
 
-    def move(self, deltaX=False, deltaY=False):
+    def move(self, deltaX, deltaY):
 
-        if not deltaX and not deltaY:
-            moveID = np.random.randint(0,4)
-
-            if (moveID == 0):
-                self.y -= 1
-            elif (moveID == 1):
-                self.x += 1
-            elif (moveID == 2):
-                self.y += 1
-            elif (moveID == 3):
-                self.x -= 1
-        else:
-            self.x += deltaX
-            self.y += deltaY
+        self.x += deltaX
+        self.y += deltaY
 
         # Keep player within bounds of the grid.
         if self.x < 0:
