@@ -32,7 +32,8 @@ class DeepQAgent:
                  target_model_update_interval, 
                  epsilon, 
                  epsilon_decay, 
-                 min_epsilon):
+                 min_epsilon,
+                 lr):
         self.env = Environment(grid_size=grid_size, return_images=True)
         self.pred_model = Encoder(action_space_size=4)
         self.target_model = Encoder(action_space_size=4)
@@ -49,9 +50,10 @@ class DeepQAgent:
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.min_epsilon = min_epsilon
+        self.lr = lr
 
         self.huber_loss = nn.SmoothL1Loss().to(self.pred_model.device)
-        self.optimizer = torch.optim.SGD(self.pred_model.parameters(), lr=0.01)
+        self.optimizer = torch.optim.SGD(self.pred_model.parameters(), lr=self.lr)
 
         self.losses = []
         self.episode_rewards = []
@@ -62,7 +64,6 @@ class DeepQAgent:
         os.makedirs(f"results/deep-qagent-{self.modelID}", exist_ok=True)
 
     def engage_environment(self, num_episodes):
-
         for episode in range(num_episodes):
             episode_reward = 0
             steps = 0
@@ -87,7 +88,10 @@ class DeepQAgent:
                 # Update replay memory and train prediction model on a minibatch
                 dataTuple = (current_state, action, reward, new_state, done)
                 self.update_replay_memory(dataTuple)
-                self.train_minibatch(done)
+
+                # Train prediction model on a minibatch every 4 steps
+                if (self.total_steps % 4 == 0):
+                    self.train_minibatch()
 
                 current_state = new_state
                 steps += 1
@@ -97,7 +101,7 @@ class DeepQAgent:
             self.step_counts.append(steps)
 
             # Print out training metrics on some episodes.
-            if episode % 50 == 0:
+            if episode % 20 == 0:
                 print(f"On Episode: {episode} | Epsilon: {self.epsilon} | Reward: {self.episode_rewards[-1]} | Steps: {self.step_counts[-1]}")
 
             # Epsilon Decay
@@ -105,12 +109,16 @@ class DeepQAgent:
                 self.epsilon *= self.epsilon_decay
                 self.epsilon = max(self.epsilon, self.min_epsilon)
 
-            # Save model every 500 episodes
+            # Save model every 200 episodes
             if episode > 0 and episode % 200 == 0:
                 torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model-{episode}-episodes.pt")
 
+            # Copy weights from pred model -> target model
+            if episode > 0 and episode % self.target_model_update_interval == 0:
+                self.target_model.load_state_dict(self.pred_model.state_dict())
 
-    def train_minibatch(self, terminal_state) -> None:
+
+    def train_minibatch(self) -> None:
         self.optimizer.zero_grad()
 
         # Can only begin training after agent has made a certain number of steps.
@@ -143,18 +151,6 @@ class DeepQAgent:
         loss.backward()
         self.losses.append(loss)
         self.optimizer.step()
-
-        # Increment counter if we finished an episode and copy weights from pred_model -> target_model if needed.
-        if terminal_state:
-            self.target_update_counter += 1
-
-            if self.target_update_counter >= self.target_model_update_interval:
-                print("Copying Pred Model Weights over to Target Model...")
-                print("Saving updated loss plot...")
-                self.target_model.load_state_dict(self.pred_model.state_dict())
-                self.target_update_counter = 0
-
-                self.save_loss_plot()
 
     def update_replay_memory(self, dataTuple):
         self.replay_memory.append(dataTuple)
