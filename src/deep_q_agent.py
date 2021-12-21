@@ -70,6 +70,9 @@ class DeepQAgent:
 
             done = False
             while not done:
+                if steps >= 1000: # agent is getting lost, just truncate the episode
+                    break
+
                 # e-greedy approach to determine action
                 if np.random.random() > self.epsilon: #exploitation
                     state_tensor = torch.unsqueeze(current_state, dim=0).to(self.pred_model.device)
@@ -81,15 +84,15 @@ class DeepQAgent:
                 reward, new_state, done = self.env.step(action)
                 episode_reward += reward
 
-                # Update replay memory and train the prediction model for every step
+                # Update replay memory and train prediction model on a minibatch
                 dataTuple = (current_state, action, reward, new_state, done)
                 self.update_replay_memory(dataTuple)
                 self.train_minibatch(done)
 
                 current_state = new_state
                 steps += 1
-                self.total_steps += 1
 
+            self.total_steps += steps
             self.episode_rewards.append(episode_reward)
             self.step_counts.append(steps)
 
@@ -117,7 +120,7 @@ class DeepQAgent:
         minibatch = random.sample(self.replay_memory, self.batch_size)# [(s,a,r,s',d)1, (s,a,r,s',d)2, ...]
 
         # Force the most recent transition tuple to be in the minibatch
-        minibatch[-1] = self.replay_memory[-1]
+        # minibatch[-1] = self.replay_memory[-1]
 
         # Obtain batches for state, action, reward and new state
         s_a_r_s_d = list(zip(*minibatch))
