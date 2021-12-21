@@ -29,10 +29,10 @@ def train_deep_q_agent():
                             batch_size=64,
                             gamma=0.999,
                             target_model_update_interval=10,
-                            epsilon=0.99,
-                            epsilon_decay=0.9997,
+                            epsilon=1.0,
+                            epsilon_decay=0.9991,
                             min_epsilon=0.001)
-    deepQAgent.engage_environment(num_episodes=10_000)
+    deepQAgent.engage_environment(num_episodes=5000)
     deepQAgent.save_results_to_disk(window_size=50)
     print('Done Training Deep RL Agent :)')
 

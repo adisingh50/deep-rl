@@ -97,9 +97,14 @@ class DeepQAgent:
             if episode > 0:
                 print(f"On Episode: {episode} | Epsilon: {self.epsilon} | Reward: {self.episode_rewards[-1]} | Steps: {self.step_counts[-1]}")
 
+            # Epsilon Decay
             if self.epsilon > self.min_epsilon:
                 self.epsilon *= self.epsilon_decay
                 self.epsilon = max(self.epsilon, self.min_epsilon)
+
+            # Save model every 500 episodes
+            if episode > 0 and episode % 500 == 0:
+                torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model-{episode}-episodes.pt")
 
 
     def train_minibatch(self, terminal_state) -> None:
@@ -118,8 +123,8 @@ class DeepQAgent:
         s_a_r_s_d = list(zip(*minibatch))
 
         state_batch = (torch.stack(s_a_r_s_d[0]) / 255.0).to(self.pred_model.device) # shape: (N,C,H,W)
-        action_batch = torch.Tensor(s_a_r_s_d[1]).to(torch.int64) # shape: (N,)
-        reward_batch = torch.Tensor(s_a_r_s_d[2]).unsqueeze(dim=1) # shape: (N,1)
+        action_batch = torch.Tensor(s_a_r_s_d[1]).to(torch.int64).to(self.pred_model.device) # shape: (N,)
+        reward_batch = torch.Tensor(s_a_r_s_d[2]).unsqueeze(dim=1).to(self.pred_model.device) # shape: (N,1)
         new_state_batch = (torch.stack(s_a_r_s_d[3]) / 255.0).to(self.pred_model.device) # shape: (N,C,H,W)
         done_batch = torch.Tensor(s_a_r_s_d[4]).to(torch.bool) # shape: (N, )
 
@@ -171,7 +176,7 @@ class DeepQAgent:
         print("Saving Deep-Q-Model and Episode Reward Metrics to Disk...")
 
         # Save Prediction Network
-        torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model.pt")
+        torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model-final.pt")
 
         # Write all episode rewards and losses to txt
         with open(f"results/deep-qagent-{self.modelID}/episode-rewards.txt", "a") as f:
