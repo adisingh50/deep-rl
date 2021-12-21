@@ -24,10 +24,21 @@ SHOW_EVERY = 2500
 
 class DeepQAgent:
 
-    def __init__(self, grid_size, replay_memory_size, min_replay_memory_size, batch_size, gamma, target_model_update_interval, epsilon, epsilon_decay, min_epsilon):
+    def __init__(self,
+                 grid_size, 
+                 replay_memory_size, 
+                 min_replay_memory_size, 
+                 batch_size, gamma, 
+                 target_model_update_interval, 
+                 epsilon, 
+                 epsilon_decay, 
+                 min_epsilon):
         self.env = Environment(grid_size=grid_size, return_images=True)
         self.pred_model = Encoder(action_space_size=4)
-        self.target_model = copy.deepcopy(self.pred_model)
+        self.target_model = Encoder(action_space_size=4)
+        self.target_model.load_state_dict(self.pred_model.state_dict())
+        self.pred_model.train()
+        self.target_model.eval()
 
         self.replay_memory = deque(maxlen=replay_memory_size)
         self.min_replay_memory_size = min_replay_memory_size
@@ -39,13 +50,8 @@ class DeepQAgent:
         self.epsilon_decay = epsilon_decay
         self.min_epsilon = min_epsilon
 
-        self.mse_loss = nn.MSELoss()
+        self.huber_loss = nn.SmoothL1Loss().to(self.pred_model.device)
         self.optimizer = torch.optim.SGD(self.pred_model.parameters(), lr=0.01)
-
-        if torch.cuda.is_available():
-            self.pred_model = self.pred_model.cuda()
-            self.target_model = self.target_model.cuda()
-            self.mse_loss = self.mse_loss.cuda()
 
         self.losses = []
         self.episode_rewards = []
@@ -56,7 +62,6 @@ class DeepQAgent:
         os.makedirs(f"results/deep-qagent-{self.modelID}", exist_ok=True)
 
     def engage_environment(self, num_episodes):
-        self.pred_model.train()
 
         for episode in range(num_episodes):
             episode_reward = 0
@@ -67,11 +72,8 @@ class DeepQAgent:
             while not done:
                 # e-greedy approach to determine action
                 if np.random.random() > self.epsilon: #exploitation
-                    state_tensor = torch.unsqueeze(current_state, dim=0)
-                    if torch.cuda.is_available():
-                        state_tensor = state_tensor.cuda()
-
-                    action = torch.argmax(self.pred_model.forward(state_tensor))
+                    state_tensor = torch.unsqueeze(current_state, dim=0).to(self.pred_model.device)
+                    action = torch.argmax(self.pred_model.forward(state_tensor)).item()
                 else: #exploration
                     action = np.random.randint(0, 4)
 
@@ -108,34 +110,28 @@ class DeepQAgent:
             return
 
         minibatch = random.sample(self.replay_memory, self.batch_size)# [(s,a,r,s',d)1, (s,a,r,s',d)2, ...]
-        current_states = torch.stack([dataTuple[0] for dataTuple in minibatch]) / 255.0 # shape: (N,C,H,W)
-        if torch.cuda.is_available():
-            current_states = current_states.cuda()
 
-        Q_state_pred = self.pred_model.forward(current_states) # shape: (N, 4)
-        Q_state_gt = torch.clone(Q_state_pred)
+        # Force the most recent transition tuple to be in the minibatch
+        minibatch[-1] = self.replay_memory[-1]
 
-        new_states = torch.stack([dataTuple[3] for dataTuple in minibatch]) / 255.0 # shape: (N,C,H,W)
-        if torch.cuda.is_available():
-            new_states = new_states.cuda()
+        # Obtain batches for state, action, reward and new state
+        s_a_r_s_d = list(zip(*minibatch))
 
-        Q_new_state_target = self.target_model.forward(new_states) # shape: (N, 4)
+        state_batch = (torch.stack(s_a_r_s_d[0]) / 255.0).to(self.pred_model.device) # shape: (N,C,H,W)
+        action_batch = torch.Tensor(s_a_r_s_d[1]).to(torch.int64) # shape: (N,)
+        reward_batch = torch.Tensor(s_a_r_s_d[2]).unsqueeze(dim=1) # shape: (N,1)
+        new_state_batch = (torch.stack(s_a_r_s_d[3]) / 255.0).to(self.pred_model.device) # shape: (N,C,H,W)
+        done_batch = torch.Tensor(s_a_r_s_d[4]).to(torch.bool) # shape: (N, )
 
-        # Iterate through minibatch to update Q_state_gt with "ground truth" Q-values
-        for image_index, (state, action, reward, new_state, done) in enumerate(minibatch):
+        Q_pred = self.pred_model.forward(state_batch).gather(1, action_batch.unsqueeze(1)) # shape: (N,1)
+        max_future_q_target = self.target_model.forward(new_state_batch).max(dim=1)[0].unsqueeze(dim=1)
+        Q_target = reward_batch + self.gamma*max_future_q_target # shape: (N,1)
 
-            # Determine the new q value for the (state, action) pair
-            if done:
-                new_q = reward
-            else:
-                max_future_q = torch.max(Q_new_state_target[image_index])
-                new_q = reward + self.gamma*max_future_q
-            
-            # Update Q value for the given state
-            Q_state_gt[image_index, action] = new_q
+        # For (state, action) pairs which terminated the episode, overwrite their Q-values with the reward 
+        Q_target[done_batch] = reward_batch[done_batch] 
 
-        # Update paramaters of pred_model
-        loss = self.mse_loss(Q_state_pred, Q_state_gt)
+        # Compute loss and update paramaters of pred_model
+        loss = self.huber_loss(Q_pred, Q_target)
         loss.backward()
         self.losses.append(loss)
         self.optimizer.step()
@@ -146,8 +142,8 @@ class DeepQAgent:
 
             if self.target_update_counter >= self.target_model_update_interval:
                 print("Copying Pred Model Weights over to Target Model...")
-                print("Saving updated loss and reward plots...")
-                self.target_model = copy.deepcopy(self.pred_model)
+                print("Saving updated loss plot...")
+                self.target_model.load_state_dict(self.pred_model.state_dict())
                 self.target_update_counter = 0
 
                 self.save_loss_plot()
@@ -164,7 +160,7 @@ class DeepQAgent:
         x_values = np.arange(self.min_replay_memory_size, self.min_replay_memory_size + len(self.losses))
         y_values = np.array(self.losses)
 
-        plt.plot(x_values, y_values)
+        plt.scatter(x_values, y_values)
         plt.xlabel("Step")
         plt.ylabel("Loss")
         plt.title("Deep RL Agent Losses")
@@ -204,7 +200,16 @@ class DeepQAgent:
         
 
 if __name__ == "__main__":
-    agent = DeepQAgent(replay_memory_size=10, min_replay_memory_size=5, batch_size=3, gamma=0.95, target_model_update_interval=5)
+    agent = DeepQAgent(grid_size=10,
+                    replay_memory_size=10, 
+                    min_replay_memory_size=5, 
+                    batch_size=4, 
+                    gamma=0.99, 
+                    target_model_update_interval=10,
+                    epsilon=0.99,
+                    epsilon_decay=0.995,
+                    min_epsilon=0.05
+                )
 
     # Fill dummy data for agent's replay memory
     for i in range(10):
@@ -213,9 +218,9 @@ if __name__ == "__main__":
         reward = np.random.randint(-10,10)
         new_state = torch.rand(3, 10, 10)
 
-        dataTuple = (state, action, reward, new_state, False)
+        dataTuple = (state, action, reward, new_state, (i % 2 == 0))
         agent.update_replay_memory(dataTuple)
 
-    agent.train(False)
+    agent.train_minibatch(False)
 
     

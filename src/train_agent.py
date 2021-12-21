@@ -24,12 +24,12 @@ def train_q_agent():
 
 def train_deep_q_agent():
     deepQAgent = DeepQAgent(grid_size=10,
-                            replay_memory_size=50_000,
-                            min_replay_memory_size=1_000,
+                            replay_memory_size=5000,
+                            min_replay_memory_size=500,
                             batch_size=64,
-                            gamma=0.95,
-                            target_model_update_interval=5,
-                            epsilon=1,
+                            gamma=0.999,
+                            target_model_update_interval=10,
+                            epsilon=0.99,
                             epsilon_decay=0.9997,
                             min_epsilon=0.001)
     deepQAgent.engage_environment(num_episodes=10_000)

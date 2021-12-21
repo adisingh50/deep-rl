@@ -25,6 +25,9 @@ class Encoder(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=(2,2), stride=2)
         self.relu = nn.ReLU()
 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.to(self.device)
+
     def forward(self, x):
         """Feeds the input tensor forward through the CNN Encoder.
 
