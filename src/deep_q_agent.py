@@ -97,7 +97,7 @@ class DeepQAgent:
             self.step_counts.append(steps)
 
             # Print out training metrics on some episodes.
-            if episode > 0:
+            if episode % 50 == 0:
                 print(f"On Episode: {episode} | Epsilon: {self.epsilon} | Reward: {self.episode_rewards[-1]} | Steps: {self.step_counts[-1]}")
 
             # Epsilon Decay
@@ -106,7 +106,7 @@ class DeepQAgent:
                 self.epsilon = max(self.epsilon, self.min_epsilon)
 
             # Save model every 500 episodes
-            if episode > 0 and episode % 500 == 0:
+            if episode > 0 and episode % 200 == 0:
                 torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model-{episode}-episodes.pt")
 
 
