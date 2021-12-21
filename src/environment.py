@@ -89,7 +89,8 @@ class Environment:
         Args:
             episode (int): The current episode we are training on.
         """
-        env = self.get_image()
+        env = self.get_image().permute((1, 2, 0)) # convert (C, H, W) -> (H, W, C)
+        env = env.detach().numpy()
         img = cv2.resize(env, (300,300), interpolation=cv2.INTER_NEAREST)
         cv2.imshow(f"Adi Game - Episode {episode}", img)
         cv2.waitKey(1)
