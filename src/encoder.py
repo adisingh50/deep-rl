@@ -40,9 +40,9 @@ class Encoder(nn.Module):
         Returns:
             output: Q-values for each input image in the batch, shape (N, action_space_size)
         """
-        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.conv1(x))
         x = self.maxpool(x)
-        x = self.relu(self.bn2(self.conv2(x)))
+        x = self.relu(self.conv2(x))
         x = self.maxpool(x)
 
         x = self.flatten(x) 

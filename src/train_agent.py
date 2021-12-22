@@ -40,7 +40,7 @@ def train_q_agent():
 
 def train_deep_q_agent():
     deepQAgent = DeepQAgent(grid_size=10,
-                            replay_memory_size=5000,
+                            replay_memory_size=10000,
                             min_replay_memory_size=500,
                             batch_size=64,
                             gamma=0.99,
@@ -48,10 +48,10 @@ def train_deep_q_agent():
                             epsilon=1.0,
                             epsilon_decay=0.995,
                             min_epsilon=0.001,
-                            lr=0.001)
+                            lr=0.01)
     deepQAgent.engage_environment(num_episodes=1000)
     deepQAgent.save_results_to_disk(window_size=50)
     print('Done Training Deep RL Agent :)')
 
 if __name__ == "__main__":
-    take_random_moves()
+    train_deep_q_agent()

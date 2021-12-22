@@ -55,7 +55,9 @@ class DeepQAgent:
         self.lr = lr
 
         self.huber_loss = nn.SmoothL1Loss().to(self.pred_model.device)
+        self.mse_loss = nn.MSELoss().to(self.pred_model.device)
         self.optimizer = torch.optim.SGD(self.pred_model.parameters(), lr=self.lr)
+        self.rms_optimizer = torch.optim.RMSprop(self.pred_model.parameters(), lr=self.lr)
 
         self.losses = []
         self.episode_rewards = []
@@ -91,8 +93,8 @@ class DeepQAgent:
                 dataTuple = (current_state, action, reward, new_state, done)
                 self.update_replay_memory(dataTuple)
 
-                # Train prediction model on a minibatch every 2 steps
-                if (self.total_steps % 2 == 0):
+                # Train prediction model on a minibatch every 4 steps
+                if (self.total_steps % 4 == 0):
                     self.train_minibatch()
 
                 current_state = new_state
@@ -145,14 +147,11 @@ class DeepQAgent:
         max_future_q_target = self.target_model.forward(new_state_batch).max(dim=1)[0].unsqueeze(dim=1)
         Q_target = reward_batch + self.gamma*max_future_q_target # shape: (N,1)
 
-        # For (state, action) pairs which terminated the episode, overwrite their Q-values with the reward 
-        # Q_target[done_batch] = reward_batch[done_batch] 
-
         # Compute loss and update paramaters of pred_model
-        loss = self.huber_loss(Q_pred, Q_target)
+        loss = self.mse_loss(Q_pred, Q_target)
         loss.backward()
         self.losses.append(loss)
-        self.optimizer.step()
+        self.rms_optimizer.step()
 
     def update_replay_memory(self, dataTuple):
         self.replay_memory.append(dataTuple)

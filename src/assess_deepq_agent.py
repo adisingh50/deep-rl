@@ -10,12 +10,13 @@ from encoder import Encoder
 from environment import Environment
 
 if __name__ == "__main__":
-    PATH = "results/deep-qagent-1640108893/model-final.pt"
+    PATH = "results/deep-qagent-1640136810/model-400-episodes.pt"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     #Load Pytorch DQN
     Q_network = Encoder(action_space_size=4)
     Q_network.load_state_dict(torch.load(PATH, map_location=device))
+    Q_network.eval()
 
     env = Environment(grid_size=10, return_images=True)
     state = env.reset()
