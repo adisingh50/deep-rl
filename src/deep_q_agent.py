@@ -93,8 +93,8 @@ class DeepQAgent:
                 dataTuple = (current_state, action, reward, new_state, done)
                 self.update_replay_memory(dataTuple)
 
-                # Train prediction model on a minibatch every 4 steps
-                if (self.total_steps % 4 == 0):
+                # Train prediction model on a minibatch every 2 steps
+                if (self.total_steps % 2 == 0):
                     self.train_minibatch()
 
                 current_state = new_state
@@ -117,9 +117,13 @@ class DeepQAgent:
                 self.epsilon *= self.epsilon_decay
                 self.epsilon = max(self.epsilon, self.min_epsilon)
 
-            # Save model every 200 episodes
+            # Save model and metrics every 200 episodes
             if episode > 0 and episode % 200 == 0:
+                print("Saving model and metrics to disk...")
                 torch.save(self.pred_model.state_dict(), f"results/deep-qagent-{self.modelID}/model-{episode}-episodes.pt")
+                save_loss_plot()
+                save_reward_plot(window_size=50)
+
 
 
     def train_minibatch(self) -> None:
@@ -144,7 +148,7 @@ class DeepQAgent:
         done_batch = torch.Tensor(s_a_r_s_d[4]).to(torch.bool) # shape: (N,)
 
         Q_pred = self.pred_model.forward(state_batch).gather(1, action_batch.unsqueeze(1)) # shape: (N,1)
-        max_future_q_target = self.target_model.forward(new_state_batch).max(dim=1)[0].unsqueeze(dim=1)
+        max_future_q_target = self.pred_model.forward(new_state_batch).max(dim=1)[0].unsqueeze(dim=1)
         Q_target = reward_batch + self.gamma*max_future_q_target # shape: (N,1)
 
         # Compute loss and update paramaters of pred_model
@@ -172,6 +176,23 @@ class DeepQAgent:
         plt.savefig(f"results/deep-qagent-{self.modelID}/loss_plot_{self.total_steps}_steps.png")
         plt.clf()
 
+    def save_reward_plot(self, window_size):
+        # Delete an old reward plot file if it exists
+        rewardPlotPaths = glob.glob(f"/content/drive/My Drive/deep-rl/results/deep-qagent-{self.modelID}/reward_plot*.png")
+        if len(rewardPlotPaths) == 1 and os.path.exists(rewardPlotPaths[0]):
+            os.remove(lossPlotPaths[0])
+
+        moving_avg = np.convolve(self.episode_rewards, np.ones((window_size,)) / window_size, mode="valid")
+        x_values = np.arange(window_size, window_size + len(moving_avg))
+        y_values = np.array(moving_avg)
+
+        plt.plot(x_values, y_values)
+        plt.xlabel("Episode")
+        plt.ylabel("Reward Moving Average")
+        plt.title("Deep RL Agent Episode Rewards")
+        plt.savefig(f"results/deep-qagent-{self.modelID}/reward_plot.png")
+        plt.clf()
+
     def save_results_to_disk(self, window_size):
         print("Saving Deep-Q-Model and Episode Reward Metrics to Disk...")
 
@@ -188,17 +209,7 @@ class DeepQAgent:
                 f.write(f"Step: {step + self.min_replay_memory_size} | Loss: {loss}\n")
 
         # Plot Episode Rewards Plot
-        moving_avg = np.convolve(self.episode_rewards, np.ones((window_size,)) / window_size, mode='valid')
-
-        x_values = np.arange(window_size, window_size + len(moving_avg))
-        y_values = np.array(moving_avg)
-
-        plt.plot(x_values, y_values)
-        plt.xlabel("Episode")
-        plt.ylabel("Reward Moving Average")
-        plt.title("Deep RL Agent Episode Rewards")
-        plt.savefig(f"results/deep-qagent-{self.modelID}/reward_plot.png")
-        plt.clf()
+        self.save_reward_plot(window_size=50)
 
         # Plot Losses Plot
         self.save_loss_plot()
